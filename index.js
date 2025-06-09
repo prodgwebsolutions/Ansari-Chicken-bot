@@ -1,10 +1,18 @@
-const TelegramBot = require('node-telegram-bot-api');
 const token ='7579175007:AAHwciT-mlq8i2WZKRfrW1qcBgOllvOV_u0'; // Replace with your bot token
-const bot = new TelegramBot(token, { polling: true });
+const express = require('express');
+const bodyParser = require('body-parser');
+const TelegramBot = require('node-telegram-bot-api');
+
+const bot = new TelegramBot(token);
+const app = express();
+app.use(bodyParser.json());
+
+const URL = process.env.APP_URL;
+bot.setWebHook(`${URL}/bot${token}`);
 
 const prices = {
-  'Egg': 60,     // per dozen
-  'Chicken': 120 // per kg
+  'Egg': 60,
+  'Chicken': 120
 };
 
 const orders = {};
@@ -23,14 +31,12 @@ const timeSlots = [
   { label: '2:00 PM – 4:00 PM', hour: 14 },
   { label: '4:00 PM – 6:00 PM', hour: 16 },
   { label: '6:00 PM – 8:00 PM', hour: 18 },
-  { label: '9:00 PM – 10:00 PM', hour: 18 }
+  { label: '9:00 PM – 10:00 PM', hour: 21 }
 ];
 
-// Helper: Get available time slots based on now
 function getAvailableTimeSlots() {
   const now = new Date();
-  now.setMinutes(now.getMinutes() + 30); // Add 30 minutes buffer
-
+  now.setMinutes(now.getMinutes() + 30);
   return timeSlots.filter(slot => {
     const slotTime = new Date();
     slotTime.setHours(slot.hour, 0, 0, 0);
@@ -52,13 +58,14 @@ function sendOrderToAdmin(bot, adminId, user, order) {
 🏷️ *Pincode:* ${order.pincode}
 🕒 *Time Slot:* ${order.slot}
 📅 *Order Time:* ${new Date().toLocaleString()}
-  `;
+`;
 
-  bot.sendMessage(adminId, adminMessage, { parse_mode: 'Markdown' }).catch(err => {
+  bot.sendMessage(5999029961, adminMessage, { parse_mode: 'Markdown' }).catch(err => {
     console.error('❌ Failed to send message to admin:', err.message);
   });
 }
 
+// === Handlers ===
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   orders[chatId] = {};
@@ -100,14 +107,12 @@ bot.on('message', (msg) => {
       bot.sendMessage(chatId, '❗ Please enter a valid 6-digit pincode.');
     } else {
       order.pincode = text;
-
       const availableSlots = getAvailableTimeSlots();
       if (availableSlots.length === 0) {
         bot.sendMessage(chatId, '⚠️ Sorry, all time slots for today are closed. Please try again later.');
         delete orders[chatId];
         return;
       }
-
       order.slotOptions = availableSlots;
       const slotKeyboard = {
         reply_markup: {
@@ -116,7 +121,6 @@ bot.on('message', (msg) => {
           one_time_keyboard: true,
         }
       };
-
       bot.sendMessage(chatId, '🕒 Please choose a delivery *time slot*:', slotKeyboard);
     }
   } else if (!order.slot) {
@@ -125,7 +129,6 @@ bot.on('message', (msg) => {
       order.slot = selectedSlot.label;
       const total = order.quantity * order.price;
       const unit = order.item === 'Egg' ? 'dozen' : 'kg';
-
       const confirmMsg = `
 ✅ *Confirm Your Order:*
 🍽️ Item: ${order.item}
@@ -136,7 +139,6 @@ bot.on('message', (msg) => {
 🕒 Slot: ${order.slot}
 
 Reply with *yes* to confirm or *cancel* to start over.`;
-
       bot.sendMessage(chatId, confirmMsg, { parse_mode: 'Markdown' });
     } else {
       bot.sendMessage(chatId, '❌ Please choose a valid slot from the options above.');
@@ -145,10 +147,7 @@ Reply with *yes* to confirm or *cancel* to start over.`;
     if (text.toLowerCase() === 'yes') {
       order.confirmed = true;
       bot.sendMessage(chatId, '🎉 Your order has been placed successfully! 🛵');
-
-      const adminId = 5999029961; // Replace with your actual Telegram user ID
-      sendOrderToAdmin(bot, adminId, msg.from, order);
-
+      sendOrderToAdmin(bot, 5999029961, msg.from, order); // replace with your Telegram user ID
       delete orders[chatId];
     } else if (text.toLowerCase() === 'cancel') {
       delete orders[chatId];
@@ -157,4 +156,16 @@ Reply with *yes* to confirm or *cancel* to start over.`;
       bot.sendMessage(chatId, '❓ Please reply with *yes* to confirm or *cancel* to cancel.', { parse_mode: 'Markdown' });
     }
   }
+});
+
+// === Webhook Endpoint ===
+app.post(`/bot${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// === Start Server ===
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Bot server running on port ${PORT}`);
 });
