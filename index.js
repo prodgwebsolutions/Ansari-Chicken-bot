@@ -7,7 +7,7 @@ const bot = new TelegramBot(token);
 const app = express();
 app.use(bodyParser.json());
 
-const URL = process.env.APP_URL;
+const URL = 'https://ansari-chicken-bot-1.onrender.com';
 bot.setWebHook(`${URL}/bot${token}`);
 
 const prices = {
