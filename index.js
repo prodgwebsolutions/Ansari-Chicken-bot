@@ -48,6 +48,17 @@ function sendOrderToAdmin(bot, adminId, user, order) {
   const total = order.quantity * order.price;
   const unit = order.item === 'Egg' ? 'dozen' : 'kg';
 
+const orderTime = new Date().toLocaleString('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  hour12: true,
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
   const adminMessage = `
 📦 *New Order Received!*
 👤 ${user.first_name} (@${user.username || 'no username'})
@@ -57,7 +68,7 @@ function sendOrderToAdmin(bot, adminId, user, order) {
 📍 *Address:* ${order.address}
 🏷️ *Pincode:* ${order.pincode}
 🕒 *Time Slot:* ${order.slot}
-📅 *Order Time:* ${new Date().toLocaleString()}
+📅 *Order Time:* ${orderTime}
 `;
 
   bot.sendMessage(5999029961, adminMessage, { parse_mode: 'Markdown' }).catch(err => {
